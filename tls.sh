@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+STOP_AFTER_FIRST=true
+
 OUTPUT_BASE="./cert-migration"
 mkdir -p "$OUTPUT_BASE"
 
@@ -14,6 +16,7 @@ NAMESPACES=$(printf "%s\n%s\n" "$INGRESS_NS" "$HTTPPROXY_NS" | sort -u)
 
 for ns in $NAMESPACES; do
   SECRET="cert${ns}"
+  PROCESSED=false
 
   echo "Processing namespace: $ns (expected secret: $SECRET)"
 
@@ -75,6 +78,13 @@ for ns in $NAMESPACES; do
     --key="$OUT_DIR/tls.key" \
     -n "$ns" \
     --dry-run=client -o yaml | kubectl apply -f -
+
+    PROCESSED=true
+    
+    if [ "$STOP_AFTER_FIRST" = true ] && [ "$PROCESSED" = true ]; then
+      echo "Stopping after first successful namespace: $ns"
+      break
+    fi 
 
 done
 
