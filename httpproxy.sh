@@ -153,3 +153,48 @@ else
   ROUTES+="      - name: ${SERVICE}\n"
   ROUTES+="        port: ${PORT}\n"
 fi
+PATHS_JSON=$(kubectl get ingress -n "$ns" -o json | jq -c --arg HOST "$host" '
+  .items[]
+  | .spec.rules[]
+  | select(.host == $HOST)
+  | .http.paths[]
+')
+
+ROUTES=""
+
+while IFS= read -r pathobj; do
+
+  RAW_PATH=$(echo "$pathobj" | jq -r '.path')
+  SERVICE=$(echo "$pathobj" | jq -r '.backend.service.name')
+  PORT=$(echo "$pathobj" | jq -r '.backend.service.port.number')
+
+  [ "$SERVICE" = "null" ] && continue
+  [ "$PORT" = "null" ] && continue
+
+  PREFIX=$(echo "$RAW_PATH" | sed -E 's/\(.*\)//')
+
+  if [ "$PREFIX" != "/" ]; then
+    PREFIX=$(echo "$PREFIX" | sed 's:/*$::')
+  fi
+
+  [ -z "$PREFIX" ] && PREFIX="/"
+
+  echo "    -> $RAW_PATH  ==>  $PREFIX  ->  $SERVICE:$PORT"
+
+  # 🔥 Direct append (no heredoc, no subshell)
+  ROUTES+=$'\n'
+  ROUTES+="  - conditions:\n"
+  ROUTES+="      - prefix: ${PREFIX}\n"
+
+  if [ "$PREFIX" != "/" ]; then
+    ROUTES+="    pathRewritePolicy:\n"
+    ROUTES+="      replacePrefix:\n"
+    ROUTES+="        - prefix: ${PREFIX}\n"
+    ROUTES+="          replacement: /\n"
+  fi
+
+  ROUTES+="    services:\n"
+  ROUTES+="      - name: ${SERVICE}\n"
+  ROUTES+="        port: ${PORT}\n"
+
+done <<< "$PATHS_JSON"
