@@ -198,3 +198,20 @@ while IFS= read -r pathobj; do
   ROUTES+="        port: ${PORT}\n"
 
 done <<< "$PATHS_JSON"
+awk -v NAME="$NAME" \
+    -v NAMESPACE="$ns" \
+    -v FQDN="$host" \
+    -v TLS_SECRET="$TLS_SECRET" \
+    -v ROUTES="$ROUTES" '
+{
+  if ($0 ~ /\$\{ROUTES\}/) {
+    print ROUTES
+  } else {
+    gsub(/\$\{NAME\}/, NAME)
+    gsub(/\$\{NAMESPACE\}/, NAMESPACE)
+    gsub(/\$\{FQDN\}/, FQDN)
+    gsub(/\$\{TLS_SECRET\}/, TLS_SECRET)
+    print
+  }
+}
+' "$BASE_TEMPLATE" > "$OUTPUT_FILE"
