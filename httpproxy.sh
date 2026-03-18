@@ -132,3 +132,24 @@ EOF
 done
 
 echo "Done."
+
+
+if [ "$PREFIX" = "/" ]; then
+  ROUTES+=$'\n'
+  ROUTES+="  - conditions:\n"
+  ROUTES+="      - prefix: /\n"
+  ROUTES+="    services:\n"
+  ROUTES+="      - name: ${SERVICE}\n"
+  ROUTES+="        port: ${PORT}\n"
+else
+  ROUTES+=$'\n'
+  ROUTES+="  - conditions:\n"
+  ROUTES+="      - prefix: ${PREFIX}\n"
+  ROUTES+="    pathRewritePolicy:\n"
+  ROUTES+="      replacePrefix:\n"
+  ROUTES+="        - prefix: ${PREFIX}\n"
+  ROUTES+="          replacement: /\n"
+  ROUTES+="    services:\n"
+  ROUTES+="      - name: ${SERVICE}\n"
+  ROUTES+="        port: ${PORT}\n"
+fi
