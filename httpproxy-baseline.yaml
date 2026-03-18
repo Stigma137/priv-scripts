@@ -1,0 +1,12 @@
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: ${NAME}
+  namespace: ${NAMESPACE}
+spec:
+  virtualhost:
+    fqdn: ${FQDN}
+    tls:
+      secretName: ${TLS_SECRET}
+  routes:
+${ROUTES}
