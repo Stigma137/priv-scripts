@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+kubectl patch ds <daemonset-name> -n <namespace> -p '{"spec": {"template": {"spec": {"nodeSelector": {"non-existing-label": "true"}}}}}'
+
 
 set -euo pipefail
 
