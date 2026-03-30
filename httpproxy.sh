@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 kubectl patch ds <daemonset-name> -n <namespace> -p '{"spec": {"template": {"spec": {"nodeSelector": {"non-existing-label": "true"}}}}}'
 
-
+docker run --rm mcr.microsoft.com/mssql-tools \
+ sqlcmd -S azty-cert-vmsqldb-modeloriesgo.database.windows.net \
+ -U username@azty-cert-vmsqldb-modeloriesgo \
+ -P password \
+ -Q "SELECT 1"
 set -euo pipefail
 
 BASE_TEMPLATE="httpproxy-base.yaml"
