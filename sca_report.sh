@@ -50,3 +50,17 @@ with open("sca-report.html","w") as f:
 print(f"Generated report with {len(vulns)} vulnerabilities")
 EOF
   displayName: Generate SCA vulnerability HTML report
+
+
+- script: |
+    SUMMARY="$(Build.ArtifactStagingDirectory)/sca-summary.md"
+
+    REPORT_URL="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)&view=artifacts&pathAsName=false&type=publishedArtifacts"
+
+    echo "## Veracode SCA Report" > $SUMMARY
+    echo "" >> $SUMMARY
+    echo "Artifact: **sca-report**" >> $SUMMARY
+    echo "" >> $SUMMARY
+    echo "[Open SCA HTML Report]($REPORT_URL)" >> $SUMMARY
+
+    echo "##vso[task.uploadsummary]$SUMMARY"
