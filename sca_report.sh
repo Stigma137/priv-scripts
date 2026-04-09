@@ -1,3 +1,17 @@
+import json
+
+with open("sca-report.json") as f:
+    data = json.load(f)
+
+print("records length:", len(data["records"]))
+
+for record in data["records"]:
+    vulns = record.get("vulnerabilities", [])
+    print("vulnerabilities found:", len(vulns))
+
+    for v in vulns:
+        print("VULN:", v.get("name"), v.get("cve"))
+
 - script: |
     python3 << 'EOF'
 import json
