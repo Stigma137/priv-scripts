@@ -1,3 +1,6 @@
+kubectl get ingress -A \
+-o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,ANNOTATION:.metadata.annotations.nginx\.ingress\.kubernetes\.io/proxy-read-timeout"
+
 import json
 
 with open("sca-report.json") as f:
