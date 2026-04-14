@@ -81,3 +81,21 @@ EOF
     echo "[Open SCA HTML Report]($REPORT_URL)" >> $SUMMARY
 
     echo "##vso[task.uploadsummary]$SUMMARY"
+routes:
+  - conditions:
+      - prefix: /paty
+    services:
+      - name: portaladministrativo-service
+        port: 80
+    requestHeadersPolicy:
+      set:
+        - name: Origin
+          value: https://patycert.tuya.com.co
+    responseHeadersPolicy:
+      set:
+        - name: Access-Control-Allow-Origin
+          value: "*"
+        - name: Access-Control-Allow-Methods
+          value: "GET, POST, PUT, DELETE, OPTIONS"
+        - name: Access-Control-Allow-Headers
+          value: "*"
