@@ -1,3 +1,11 @@
+kubectl get ingress -A -o json | jq -r '
+.items[] |
+{
+  namespace: .metadata.namespace,
+  name: .metadata.name,
+  cors: .metadata.annotations["nginx.ingress.kubernetes.io/cors-allow-origin"]
+}'
+
 kubectl get ingress -A \
 -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,ANNOTATION:.metadata.annotations.nginx\.ingress\.kubernetes\.io/proxy-read-timeout"
 
