@@ -1,5 +1,15 @@
 FILE="Deploy_Resources/variables.yaml"
 
+OLD_VAR="current_variable"
+NEW_VAR="new_variable"
+DELETE_VAR="obsolete_variable"
+
+sed -i "/name:[[:space:]]*$OLD_VAR$/s/$OLD_VAR/$NEW_VAR/" "$FILE"
+sed -i "/name:[[:space:]]*$DELETE_VAR$/{N;N;d;}" "$FILE"
+
+
+FILE="Deploy_Resources/variables.yaml"
+
 # Rename variable
 sed -i 's/^\([[:space:]]*-[[:space:]]*name:[[:space:]]*\)current_name$/\1new_name/' "$FILE"
 
