@@ -1,3 +1,14 @@
+jq -s '
+{
+  records: [
+    {
+      vulnerabilities: (.[0].records[0].vulnerabilities + .[1].records[0].vulnerabilities),
+      libraries: (.[0].records[0].libraries + .[1].records[0].libraries)
+    }
+  ]
+}
+' backend/sca-results.json frontend/sca-results.json > sca-results-merged.json
+
 kubectl get ingress -A -o json | jq -r '
 .items[] |
 {
