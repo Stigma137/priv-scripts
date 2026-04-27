@@ -1,14 +1,10 @@
-- bash: |
-    echo "$(System.AccessToken)" | az devops login --organization https://dev.azure.com/<org>
+FILE="Deploy_Resources/variables.yaml"
 
-    az devops configure --defaults \
-      organization=https://dev.azure.com/<org> \
-      project="<project>"
+# Rename variable
+sed -i 's/^\([[:space:]]*-[[:space:]]*name:[[:space:]]*\)current_name$/\1new_name/' "$FILE"
 
-    az repos list
-  displayName: Login Azure DevOps CLI
-
-
+# Delete variable block
+sed -i '/^[[:space:]]*-[[:space:]]*name:[[:space:]]*obsolete_var$/{N;N;d;}' "$FILE"
 #!/bin/bash
 set -e
 
