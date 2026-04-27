@@ -1,3 +1,14 @@
+- bash: |
+    echo "$(System.AccessToken)" | az devops login --organization https://dev.azure.com/<org>
+
+    az devops configure --defaults \
+      organization=https://dev.azure.com/<org> \
+      project="<project>"
+
+    az repos list
+  displayName: Login Azure DevOps CLI
+
+
 #!/bin/bash
 set -e
 
