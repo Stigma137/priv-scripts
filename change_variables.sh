@@ -1,3 +1,4 @@
+sed -i "/^[[:space:]]*-[[:space:]]*name:[[:space:]]*$DELETE_VAR[[:space:]]*$/{N;d;}" "$FILE"
 FILE="Deploy_Resources/variables.yaml"
 
 OLD_VAR="current_variable"
