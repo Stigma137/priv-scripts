@@ -1,3 +1,17 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+output=$(your_veracode_command_here 2>&1)
+echo "$output"
+
+if echo "$output" | grep -q "Policy evaluation failed"; then
+  echo "❌ Veracode policy failed"
+  exit 1
+fi
+
+echo "✅ Veracode policy passed"
+
 sed -i "/^[[:space:]]*-[[:space:]]*name:[[:space:]]*$DELETE_VAR[[:space:]]*$/{N;d;}" "$FILE"
 FILE="Deploy_Resources/variables.yaml"
 
