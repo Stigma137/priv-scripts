@@ -1,0 +1,315 @@
+Bueno. Usar identidad federada (OIDC workload identity federation) es el enfoque moderno correcto para la autenticación entre Azure DevOps y Azure.
+
+Esto elimina:
+
+- Client secrets
+- Rotación de secretos
+- Credenciales almacenadas
+- Problemas relacionados con MFA
+
+Tu flujo final quedaría así:
+
+Azure DevOps Pipeline
+   → Token OIDC
+      → Credencial Federada en Entra ID
+         → Microsoft Graph API
+            → Teams
+
+Esto es considerablemente más limpio y seguro.
+
+--------------------------------------------------
+ARQUITECTURA
+--------------------------------------------------
+
+Vas a crear:
+
+| Componente | Propósito |
+|---|---|
+| App Registration | Identidad para Graph API |
+| Federated Credential | Confiar en Azure DevOps |
+| Service Connection de Azure DevOps | Autenticación OIDC |
+| Pipeline | Obtener token de Graph dinámicamente |
+
+--------------------------------------------------
+PASO 1 — CREAR EL APP REGISTRATION
+--------------------------------------------------
+
+En Azure:
+
+Crea un App Registration llamado por ejemplo:
+
+veracode-teams-notifier
+
+Guarda:
+
+- Client ID
+- Tenant ID
+
+--------------------------------------------------
+PASO 2 — AGREGAR PERMISOS DE GRAPH
+--------------------------------------------------
+
+Permisos de aplicación:
+
+- User.Read.All
+- Chat.Create
+- Chat.ReadWrite
+- ChatMessage.Send
+
+Luego:
+
+IMPORTANTE
+
+Haz clic en:
+
+Grant Admin Consent
+
+Es obligatorio.
+
+--------------------------------------------------
+PASO 3 — CREAR LA FEDERATED CREDENTIAL
+--------------------------------------------------
+
+Dentro del App Registration:
+
+Certificates & Secrets
+→ Federated Credentials
+→ Add Credential
+
+Selecciona:
+
+Azure DevOps
+
+Necesitarás:
+
+| Campo | Valor |
+|---|---|
+| Organization | Tu organización de ADO |
+| Project | Tu proyecto |
+| Service Connection | Tu service connection |
+
+Azure genera automáticamente la relación de confianza.
+
+--------------------------------------------------
+PASO 4 — CREAR EL SERVICE CONNECTION EN AZURE DEVOPS
+--------------------------------------------------
+
+En Azure DevOps:
+
+Project Settings
+→ Service Connections
+→ New Service Connection
+→ Azure Resource Manager
+→ Workload Identity Federation
+
+Selecciona:
+
+App registration (automatic)
+
+O un App Registration existente.
+
+Esto crea la confianza OIDC.
+
+--------------------------------------------------
+PASO 5 — AUTORIZAR EL PIPELINE
+--------------------------------------------------
+
+Autoriza el pipeline para usar el service connection.
+
+Ejemplo:
+
+graph-oidc-connection
+
+--------------------------------------------------
+PASO 6 — PIPELINE YAML
+--------------------------------------------------
+
+Ahora viene la parte importante.
+
+Te autenticas SIN secretos.
+
+--------------------------------------------------
+EJEMPLO MÍNIMO FUNCIONAL
+--------------------------------------------------
+
+steps:
+
+- task: AzureCLI@2
+  displayName: Get Graph Token via OIDC
+  inputs:
+    azureSubscription: graph-oidc-connection
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+
+      set -e
+
+      #################################################
+      # OBTENER TOKEN DE GRAPH
+      #################################################
+
+      TOKEN=$(az account get-access-token \
+        --resource-type ms-graph \
+        --query accessToken \
+        -o tsv)
+
+      echo "Token adquirido"
+
+      #################################################
+      # PROBAR BÚSQUEDA DE USUARIO
+      #################################################
+
+      USER_EMAIL="$(Build.RequestedForEmail)"
+
+      echo "Resolviendo usuario: $USER_EMAIL"
+
+      curl -s \
+        -H "Authorization: Bearer $TOKEN" \
+        "https://graph.microsoft.com/v1.0/users/$USER_EMAIL"
+
+--------------------------------------------------
+ESTA ES LA DIFERENCIA CLAVE
+--------------------------------------------------
+
+En lugar de usar:
+
+client_id + client_secret
+
+ahora usas:
+
+OIDC trust
+
+No hay secretos almacenados en ningún lado.
+
+--------------------------------------------------
+PASO 7 — PROBAR CREACIÓN DE CHAT
+--------------------------------------------------
+
+Una vez que la búsqueda de usuario funcione:
+
+Agregar:
+
+USER_ID=$(curl -s \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://graph.microsoft.com/v1.0/users/$USER_EMAIL" \
+  | jq -r '.id')
+
+Luego:
+
+CHAT_RESPONSE=$(curl -s -X POST \
+  "https://graph.microsoft.com/v1.0/chats" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"chatType\": \"oneOnOne\",
+    \"members\": [
+      {
+        \"@odata.type\": \"#microsoft.graph.aadUserConversationMember\",
+        \"roles\": [\"owner\"],
+        \"user@odata.bind\": \"https://graph.microsoft.com/v1.0/users('$USER_ID')\"
+      }
+    ]
+  }")
+
+--------------------------------------------------
+LUEGO ENVIAR MENSAJE
+--------------------------------------------------
+
+CHAT_ID=$(echo "$CHAT_RESPONSE" | jq -r '.id')
+
+curl -s -X POST \
+  "https://graph.microsoft.com/v1.0/chats/$CHAT_ID/messages" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "body": {
+      "contentType": "html",
+      "content": "<b>Veracode vulnerabilities detected</b>"
+    }
+  }'
+
+--------------------------------------------------
+NOTAS IMPORTANTES ENTERPRISE
+--------------------------------------------------
+
+AzureCLI@2 es importante porque:
+
+az account get-access-token
+
+usa automáticamente la identidad federada.
+
+No se requiere manejo de secretos.
+
+--------------------------------------------------
+HERRAMIENTAS NECESARIAS EN EL AGENTE
+--------------------------------------------------
+
+Tu agente de build necesita:
+
+- Azure CLI
+- jq
+
+Los agentes Ubuntu hosted ya incluyen ambos.
+
+--------------------------------------------------
+RECOMENDACIÓN IMPORTANTE
+--------------------------------------------------
+
+Inicialmente:
+
+NO:
+
+- construir adaptive cards
+- crear librerías reutilizables
+- crear apps con Bot Framework
+
+Primero valida:
+
+1. Que OIDC funcione
+2. Que el token de Graph funcione
+3. Que la búsqueda de usuario funcione
+4. Que la creación del chat funcione
+5. Que el envío de mensajes funcione
+
+Solo después mejora el UX.
+
+--------------------------------------------------
+ERRORES COMUNES
+--------------------------------------------------
+
+403
+
+Generalmente:
+
+- Falta admin consent
+- Faltan permisos Graph
+
+--------------------------------------------------
+RESULTADO DE USUARIO VACÍO
+--------------------------------------------------
+
+Generalmente:
+
+Build.RequestedForEmail
+
+no coincide con el UPN de Entra.
+
+--------------------------------------------------
+CREACIÓN DE CHAT BLOQUEADA
+--------------------------------------------------
+
+Problema de políticas del tenant.
+
+Esta es la gran incógnita que ahora estás validando.
+
+--------------------------------------------------
+MEJOR RESULTADO POSIBLE
+--------------------------------------------------
+
+Si tu tenant permite:
+
+- creación proactiva de chats autenticados por aplicación
+
+entonces tu solución se vuelve MUY simple.
+
+No necesitarás Bot Framework.
