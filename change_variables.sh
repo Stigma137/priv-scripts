@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 CHAT_RESPONSE=$(curl -s -X POST \
   "https://graph.microsoft.com/v1.0/chats" \
   -H "Authorization: Bearer $TOKEN" \
@@ -14,6 +13,9 @@ CHAT_RESPONSE=$(curl -s -X POST \
       }
     ]
   }")
+
+echo "$CHAT_RESPONSE"
+  
 
 set -o pipefail
 
