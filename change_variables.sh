@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
 
+CHAT_RESPONSE=$(curl -s -X POST \
+  "https://graph.microsoft.com/v1.0/chats" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"chatType\": \"oneOnOne\",
+    \"members\": [
+      {
+        \"@odata.type\": \"#microsoft.graph.aadUserConversationMember\",
+        \"roles\": [\"owner\"],
+        \"user@odata.bind\": \"https://graph.microsoft.com/v1.0/users('$USER_ID')\"
+      }
+    ]
+  }")
+
 set -o pipefail
 
 output=$(your_veracode_command_here 2>&1)
