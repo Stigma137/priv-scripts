@@ -1,0 +1,158 @@
+steps:
+
+- task: AzureCLI@2
+  displayName: Send Teams Notification
+  inputs:
+    azureSubscription: graph-oidc-connection
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+
+      set -e
+
+      #################################################
+      # CONFIGURATION
+      #################################################
+
+      USER_EMAIL="$(Build.RequestedForEmail)"
+
+      echo "========================================="
+      echo "Resolving user: $USER_EMAIL"
+      echo "========================================="
+
+      #################################################
+      # GET MICROSOFT GRAPH TOKEN
+      #################################################
+
+      TOKEN=$(az account get-access-token \
+        --resource-type ms-graph \
+        --query accessToken \
+        -o tsv)
+
+      if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+        echo "Failed to acquire Graph token"
+        exit 1
+      fi
+
+      echo "Graph token acquired"
+
+      #################################################
+      # RESOLVE USER
+      #################################################
+
+      USER_RESPONSE=$(curl -s \
+        -H "Authorization: Bearer $TOKEN" \
+        "https://graph.microsoft.com/v1.0/users/$USER_EMAIL")
+
+      echo "$USER_RESPONSE" | jq
+
+      USER_ID=$(echo "$USER_RESPONSE" | jq -r '.id')
+
+      if [ -z "$USER_ID" ] || [ "$USER_ID" = "null" ]; then
+        echo "Failed to resolve user"
+        exit 1
+      fi
+
+      echo "Resolved USER_ID=$USER_ID"
+
+      #################################################
+      # SEARCH EXISTING CHATS
+      #################################################
+
+      echo "========================================="
+      echo "Searching existing chats..."
+      echo "========================================="
+
+      CHATS_RESPONSE=$(curl -s \
+        -H "Authorization: Bearer $TOKEN" \
+        "https://graph.microsoft.com/v1.0/users/$USER_ID/chats")
+
+      echo "$CHATS_RESPONSE" | jq > chats.json
+
+      CHAT_ID=$(cat chats.json | jq -r '
+        .value[]
+        | select(.chatType == "group")
+        | .id
+      ' | head -n 1)
+
+      #################################################
+      # CREATE CHAT IF NOT FOUND
+      #################################################
+
+      if [ -z "$CHAT_ID" ] || [ "$CHAT_ID" = "null" ]; then
+
+        echo "========================================="
+        echo "No existing chat found"
+        echo "Creating new chat..."
+        echo "========================================="
+
+        CHAT_RESPONSE=$(curl -s -X POST \
+          "https://graph.microsoft.com/v1.0/chats" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"chatType\": \"group\",
+            \"topic\": \"Veracode Security Alerts\",
+            \"members\": [
+              {
+                \"@odata.type\": \"#microsoft.graph.aadUserConversationMember\",
+                \"roles\": [\"owner\"],
+                \"user@odata.bind\": \"https://graph.microsoft.com/v1.0/users('$USER_ID')\"
+              }
+            ]
+          }")
+
+        echo "$CHAT_RESPONSE" | jq
+
+        CHAT_ID=$(echo "$CHAT_RESPONSE" | jq -r '.id')
+
+        if [ -z "$CHAT_ID" ] || [ "$CHAT_ID" = "null" ]; then
+          echo "Failed to create chat"
+          exit 1
+        fi
+
+        echo "Created CHAT_ID=$CHAT_ID"
+
+      else
+
+        echo "========================================="
+        echo "Existing chat found"
+        echo "CHAT_ID=$CHAT_ID"
+        echo "========================================="
+
+      fi
+
+      #################################################
+      # SEND MESSAGE
+      #################################################
+
+      echo "========================================="
+      echo "Sending Teams message..."
+      echo "========================================="
+
+      PIPELINE_URL="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+
+      MESSAGE_RESPONSE=$(curl -s -X POST \
+        "https://graph.microsoft.com/v1.0/chats/$CHAT_ID/messages" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"body\": {
+            \"contentType\": \"html\",
+            \"content\": \"<b>Veracode vulnerabilities detected</b><br/><br/>Repository: $(Build.Repository.Name)<br/>Branch: $(Build.SourceBranchName)<br/><br/><a href='$PIPELINE_URL'>Open Pipeline Results</a>\"
+          }
+        }")
+
+      echo "$MESSAGE_RESPONSE" | jq
+
+      MESSAGE_ID=$(echo "$MESSAGE_RESPONSE" | jq -r '.id')
+
+      if [ -z "$MESSAGE_ID" ] || [ "$MESSAGE_ID" = "null" ]; then
+        echo "Failed to send message"
+        exit 1
+      fi
+
+      echo "========================================="
+      echo "Teams message sent successfully"
+      echo "MESSAGE_ID=$MESSAGE_ID"
+      echo "========================================="
