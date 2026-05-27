@@ -1,4 +1,35 @@
 #!/usr/bin/env bash
+
+echo "========================================="
+echo "Retrieving all chats..."
+echo "========================================="
+
+NEXT_URL="https://graph.microsoft.com/v1.0/users/$USER_ID/chats"
+
+ALL_CHATS="[]"
+
+while [ -n "$NEXT_URL" ]; do
+
+  echo "Fetching page..."
+
+  RESPONSE=$(curl -s \
+    -H "Authorization: Bearer $TOKEN" \
+    "$NEXT_URL")
+
+  PAGE_CHATS=$(echo "$RESPONSE" | jq '.value')
+
+  ALL_CHATS=$(jq -s 'add' \
+    <(echo "$ALL_CHATS") \
+    <(echo "$PAGE_CHATS"))
+
+  NEXT_URL=$(echo "$RESPONSE" | jq -r '."@odata.nextLink" // empty')
+
+done
+
+echo "$ALL_CHATS" | jq > all_chats.json
+
+echo "Total chats:"
+echo "$ALL_CHATS" | jq 'length'
 CHAT_RESPONSE=$(curl -s -X POST \
   "https://graph.microsoft.com/v1.0/chats" \
   -H "Authorization: Bearer $TOKEN" \
