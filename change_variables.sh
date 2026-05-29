@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+sed -i '/^[[:space:]]*-[[:space:]]*feature\/\*\*/d' Deploy_Resources/net-aks-pipeline.yaml
 echo "========================================="
 echo "Retrieving all chats..."
 echo "========================================="
