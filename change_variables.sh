@@ -1,4 +1,24 @@
 #!/usr/bin/env bash
+$changedFiles = git diff --name-only HEAD~1 HEAD
+
+$onlyDeployResources = $true
+
+foreach ($file in $changedFiles) {
+    if ($file -notlike 'Deploy_Resources/*') {
+        $onlyDeployResources = $false
+        break
+    }
+}
+
+Write-Host "Only Deploy_Resources changes: $onlyDeployResources"
+
+if ($onlyDeployResources) {
+    Write-Host "##vso[task.setvariable variable=SkipSecurityScans]true"
+}
+else {
+    Write-Host "##vso[task.setvariable variable=SkipSecurityScans]false"
+}
+
 sed -i '/^[[:space:]]*-[[:space:]]*feature\/\*\*/d' Deploy_Resources/net-aks-pipeline.yaml
 echo "========================================="
 echo "Retrieving all chats..."
