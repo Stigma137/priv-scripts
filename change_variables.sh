@@ -1,3 +1,30 @@
+tasks.register('veracodeJar', Jar) {
+    dependsOn testClasses
+
+    // Output directory
+    destinationDirectory = file("$buildDir/veracode")
+
+    // Output file name
+    archiveFileName = "my-veracode-package.jar"
+
+    from sourceSets.main.output
+    from sourceSets.test.output
+
+    from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+
+    from {
+        configurations.testRuntimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 #!/usr/bin/env bash
 $changedFiles = git diff --name-only HEAD~1 HEAD
 
